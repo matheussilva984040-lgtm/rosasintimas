@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loja de Lingerie - Catálogo Virtual</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #fff5f7;
+            color: #4a4a4a;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+        header {
+            background-color: #ff6b8b;
+            color: white;
+            padding: 30px 10px;
+        }
+        header h1 { margin: 0; font-size: 2.5em; }
+        header p { margin: 5px 0 0 0; font-style: italic; }
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 0 20px;
+        }
+        .card-produto {
+            background-color: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .placeholder-foto {
+            width: 100%;
+            height: 200px;
+            background-color: #ffe3e8;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ff6b8b;
+            font-weight: bold;
+        }
+        .preco {
+            color: #ff6b8b;
+            font-size: 1.4em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .btn-comprar {
+            background-color: #25d366;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .foto-produto {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        .painel-admin {
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 24px;
+            background: white;
+            border: 1px solid #f2c5cf;
+            border-radius: 12px;
+            text-align: left;
+        }
+        .painel-admin[hidden] { display: none; }
+        .painel-admin h2 { color: #b83d5a; }
+        .aviso-admin {
+            padding: 12px;
+            background: #fff5d9;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+        .form-admin {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+        .form-admin label { display: grid; gap: 6px; }
+        .form-admin input {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d7c6ca;
+            border-radius: 6px;
+        }
+        .acoes-admin { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+        .acoes-admin button, .produto-admin button {
+            padding: 9px 14px;
+            border: 0;
+            border-radius: 6px;
+            background: #ff6b8b;
+            color: white;
+            cursor: pointer;
+        }
+        .lista-admin { padding: 0; list-style: none; }
+        .produto-admin {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+        @media (max-width: 520px) {
+            .produto-admin { align-items: flex-start; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Lingerie da Mamãe 🌸</h1>
+        <p>Conforto e elegância para o seu dia a dia</p>
+    </header>
+
+    <main>
+        <div class="container" id="catalogo" aria-live="polite"></div>
+
+        <section class="painel-admin" id="painel-admin" hidden>
+            <h2>Administração do catálogo</h2>
+            <p class="aviso-admin">
+                Este painel salva os produtos somente neste navegador. Ele não tem login seguro e
+                as alterações não são enviadas para o site publicado. Para administrar uma loja
+                online com segurança e compartilhar alterações, será necessário configurar um
+                serviço com autenticação e banco de dados.
+            </p>
+            <form class="form-admin" id="form-produto">
+                <label>Nome do produto
+                    <input name="nome" required maxlength="100">
+                </label>
+                <label>Preço (ex.: 49,90)
+                    <input name="preco" required inputmode="decimal" placeholder="49,90">
+                </label>
+                <label>Endereço da foto (opcional)
+                    <input name="foto" type="url" placeholder="https://...">
+                </label>
+                <div class="acoes-admin">
+                    <button type="submit" id="salvar-produto">Adicionar produto</button>
+                    <button type="button" id="cancelar-edicao" hidden>Cancelar edição</button>
+                </div>
+            </form>
+            <h3>Produtos cadastrados</h3>
+            <ul class="lista-admin" id="lista-admin"></ul>
+            <div class="acoes-admin">
+                <button type="button" id="exportar-produtos">Exportar catálogo</button>
+                <button type="button" id="importar-produtos">Importar catálogo</button>
+                <input type="file" id="arquivo-produtos" accept="application/json,.json" hidden>
+                <button type="button" id="fechar-admin">Fechar painel</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const CHAVE_CATALOGO = "lingerie-da-mamae-catalogo";
+        const produtosIniciais = [
+            { id: "conjunto-renda", nome: "Conjunto Renda Confort", preco: 49.90, foto: "" },
+            { id: "calcinha-algodao", nome: "Calcinha Algodão Diária", preco: 15.00, foto: "" }
+        ];
+        const catalogo = document.getElementById("catalogo");
+        const painel = document.getElementById("painel-admin");
+        const formulario = document.getElementById("form-produto");
+        let produtos = carregarProdutos();
+        let produtoEmEdicao = null;
+
+        function carregarProdutos() {
+            try {
+                const salvo = localStorage.getItem(CHAVE_CATALOGO);
+                if (salvo === null) return produtosIniciais.map(produto => ({ ...produto }));
+                const dados = JSON.parse(salvo);
+                if (!Array.isArray(dados)) throw new Error("O catálogo salvo não é uma lista válida.");
+                return dados;
+            } catch (erro) {
+                console.error("Não foi possível carregar o catálogo salvo.", erro);
+                alert("Não foi possível carregar o catálogo salvo neste navegador.");
+                return produtosIniciais.map(produto => ({ ...produto }));
+            }
+        }
+
+        function salvarProdutos() {
+            try {
+                localStorage.setItem(CHAVE_CATALOGO, JSON.stringify(produtos));
+            } catch (erro) {
+                console.error("Não foi possível salvar o catálogo.", erro);
+                alert("Não foi possível salvar os produtos neste navegador.");
+                return false;
+            }
+            return true;
+        }
+
+        function renderizarCatalogo() {
+            catalogo.replaceChildren();
+            produtos.forEach(produto => {
+                const card = document.createElement("article");
+                card.className = "card-produto";
+                if (produto.foto) {
+                    const imagem = document.createElement("img");
+                    imagem.className = "foto-produto";
+                    imagem.src = produto.foto;
+                    imagem.alt = produto.nome;
+                    card.append(imagem);
+                } else {
+                    const placeholder = document.createElement("div");
+                    placeholder.className = "placeholder-foto";
+                    placeholder.textContent = "Foto não cadastrada";
+                    card.append(placeholder);
+                }
+
+                const nome = document.createElement("h3");
+                nome.textContent = produto.nome;
+                const preco = document.createElement("p");
+                preco.className = "preco";
+                preco.textContent = Number(produto.preco).toLocaleString("pt-BR", {
+                    style: "currency", currency: "BRL"
+                });
+                const comprar = document.createElement("a");
+                comprar.href = "https://wa.me";
+                comprar.target = "_blank";
+                comprar.rel = "noopener noreferrer";
+                comprar.className = "btn-comprar";
+                comprar.textContent = "Comprar no WhatsApp";
+                card.append(nome, preco, comprar);
+                catalogo.append(card);
+            });
+        }
+
+        function renderizarListaAdmin() {
+            const lista = document.getElementById("lista-admin");
+            lista.replaceChildren();
+            produtos.forEach(produto => {
+                const item = document.createElement("li");
+                item.className = "produto-admin";
+                const descricao = document.createElement("span");
+                descricao.textContent = `${produto.nome} — ${Number(produto.preco).toLocaleString("pt-BR", {
+                    style: "currency", currency: "BRL"
+                })}`;
+                const acoes = document.createElement("div");
+                acoes.className = "acoes-admin";
+                const editar = document.createElement("button");
+                editar.type = "button";
+                editar.textContent = "Editar";
+                editar.addEventListener("click", () => iniciarEdicao(produto));
+                const remover = document.createElement("button");
+                remover.type = "button";
+                remover.textContent = "Remover";
+                remover.addEventListener("click", () => {
+                    if (!confirm(`Remover "${produto.nome}" do catálogo neste navegador?`)) return;
+                    produtos = produtos.filter(itemProduto => itemProduto.id !== produto.id);
+                    if (salvarProdutos()) atualizarTelas();
+                });
+                acoes.append(editar, remover);
+                item.append(descricao, acoes);
+                lista.append(item);
+            });
+        }
+
+        function atualizarTelas() {
+            renderizarCatalogo();
+            renderizarListaAdmin();
+        }
+
+        function abrirPainel() {
+            painel.hidden = false;
+            renderizarListaAdmin();
+            painel.scrollIntoView({ behavior: "smooth" });
+        }
+
+        function fecharPainel() {
+            painel.hidden = true;
+            formulario.reset();
+            produtoEmEdicao = null;
+            document.getElementById("salvar-produto").textContent = "Adicionar produto";
+            document.getElementById("cancelar-edicao").hidden = true;
+        }
+
+        function iniciarEdicao(produto) {
+            produtoEmEdicao = produto.id;
+            formulario.elements.nome.value = produto.nome;
+            formulario.elements.preco.value = Number(produto.preco).toFixed(2).replace(".", ",");
+            formulario.elements.foto.value = produto.foto || "";
+            document.getElementById("salvar-produto").textContent = "Salvar alterações";
+            document.getElementById("cancelar-edicao").hidden = false;
+            formulario.elements.nome.focus();
+        }
+
+        formulario.addEventListener("submit", evento => {
+            evento.preventDefault();
+            const nome = formulario.elements.nome.value.trim();
+            const precoTexto = formulario.elements.preco.value.trim().replace(",", ".");
+            const preco = Number(precoTexto);
+            const foto = formulario.elements.foto.value.trim();
+            if (!nome || !Number.isFinite(preco) || preco < 0) {
+                alert("Informe um nome e um preço válido para o produto.");
+                return;
+            }
+            if (foto && !foto.toLowerCase().startsWith("http://") &&
+                !foto.toLowerCase().startsWith("https://")) {
+                alert("A foto deve usar um endereço iniciado por http:// ou https://.");
+                return;
+            }
+            if (produtoEmEdicao) {
+                produtos = produtos.map(produto => produto.id === produtoEmEdicao
+                    ? { ...produto, nome, preco, foto } : produto);
+            } else {
+                produtos.push({ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, nome, preco, foto });
+            }
+            if (salvarProdutos()) {
+                formulario.reset();
+                produtoEmEdicao = null;
+                document.getElementById("salvar-produto").textContent = "Adicionar produto";
+                document.getElementById("cancelar-edicao").hidden = true;
+                atualizarTelas();
+            }
+        });
+
+        document.getElementById("cancelar-edicao").addEventListener("click", () => {
+            formulario.reset();
+            produtoEmEdicao = null;
+            document.getElementById("salvar-produto").textContent = "Adicionar produto";
+            document.getElementById("cancelar-edicao").hidden = true;
+        });
+        document.getElementById("fechar-admin").addEventListener("click", fecharPainel);
+        document.getElementById("exportar-produtos").addEventListener("click", () => {
+            const arquivo = new Blob([JSON.stringify(produtos, null, 2)], { type: "application/json" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(arquivo);
+            link.download = "catalogo-lingerie.json";
+            link.click();
+            URL.revokeObjectURL(link.href);
+        });
+        document.getElementById("importar-produtos").addEventListener("click", () => {
+            document.getElementById("arquivo-produtos").click();
+        });
+        document.getElementById("arquivo-produtos").addEventListener("change", async evento => {
+            const arquivo = evento.target.files[0];
+            if (!arquivo) return;
+            try {
+                const dados = JSON.parse(await arquivo.text());
+                const valido = Array.isArray(dados) && dados.every(produto =>
+                    produto && typeof produto.nome === "string" && produto.nome.trim() &&
+                    Number.isFinite(Number(produto.preco)) && Number(produto.preco) >= 0 &&
+                    (produto.foto === undefined || typeof produto.foto === "string") &&
+                    (!produto.foto || produto.foto.toLowerCase().startsWith("http://") ||
+                        produto.foto.toLowerCase().startsWith("https://")));
+                if (!valido) throw new Error("O arquivo precisa conter uma lista de produtos válida.");
+                produtos = dados.map(produto => ({
+                    id: String(produto.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
+                    nome: produto.nome.trim(),
+                    preco: Number(produto.preco),
+                    foto: produto.foto || ""
+                }));
+                if (salvarProdutos()) atualizarTelas();
+            } catch (erro) {
+                console.error("Não foi possível importar o catálogo.", erro);
+                alert("Arquivo inválido. Selecione um JSON exportado por este painel.");
+            } finally {
+                evento.target.value = "";
+            }
+        });
+        document.addEventListener("keydown", evento => {
+            if (evento.altKey && evento.shiftKey && evento.key.toLowerCase() === "m") {
+                evento.preventDefault();
+                if (painel.hidden) abrirPainel();
+                else fecharPainel();
+            }
+        });
+
+        renderizarCatalogo();
+        if (window.location.hash === "#admin") abrirPainel();
+    </script>
+</body>
+</html>
